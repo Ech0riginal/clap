@@ -14,7 +14,7 @@
 
 // First, let's create a module that re-exports clap
 mod common {
-    pub use clap;
+    pub(super) use clap;
 }
 
 #[test]
@@ -60,12 +60,14 @@ fn custom_crate_path_subcommand() {
 
 #[test]
 fn custom_crate_path_args() {
+    use common::clap::Parser;
+
     #[derive(clap::Args, Debug, PartialEq)]
     #[clap(crate = "common::clap")]
     struct Config {
-        #[arg(short, long)]
+        #[arg(short = 'H', long)]
         host: String,
-        
+
         #[arg(short, long, default_value = "8080")]
         port: u16,
     }
@@ -84,6 +86,8 @@ fn custom_crate_path_args() {
 
 #[test]
 fn custom_crate_path_value_enum() {
+    use common::clap::Parser;
+
     #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
     #[clap(crate = "common::clap")]
     enum Color {
@@ -105,6 +109,8 @@ fn custom_crate_path_value_enum() {
 
 #[test]
 fn custom_crate_path_nested() {
+    use common::clap::Parser;
+
     #[derive(clap::Args, Debug, PartialEq)]
     #[clap(crate = "common::clap")]
     struct Inner {
