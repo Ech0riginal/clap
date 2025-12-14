@@ -49,6 +49,7 @@ pub(crate) fn gen_for_enum(
     let lits = lits(variants)?;
     let value_variants = gen_value_variants(&lits);
     let to_possible_value = gen_to_possible_value(item, &lits);
+    let crate_path = item.crate_path();
 
     Ok(quote! {
         #[allow(
@@ -72,7 +73,7 @@ pub(crate) fn gen_for_enum(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl clap::ValueEnum for #item_name {
+        impl #crate_path::ValueEnum for #item_name {
             #value_variants
             #to_possible_value
         }
@@ -80,6 +81,7 @@ pub(crate) fn gen_for_enum(
 }
 
 fn lits(variants: &[(&Variant, Item)]) -> Result<Vec<(TokenStream, Ident)>, syn::Error> {
+    let crate_path = variants.first().map(|(_, item)| item.crate_path()).unwrap_or_else(|| quote!(clap));
     let mut genned = Vec::new();
     for (variant, item) in variants {
         if let Kind::Skip(_, _) = &*item.kind() {
@@ -94,7 +96,7 @@ fn lits(variants: &[(&Variant, Item)]) -> Result<Vec<(TokenStream, Ident)>, syn:
         genned.push((
             quote_spanned! { variant.span()=> {
                 #deprecations
-                clap::builder::PossibleValue::new(#name)
+                #crate_path::builder::PossibleValue::new(#name)
                 #fields
             }},
             variant.ident.clone(),
@@ -117,9 +119,10 @@ fn gen_to_possible_value(item: &Item, lits: &[(TokenStream, Ident)]) -> TokenStr
     let (lit, variant): (Vec<TokenStream>, Vec<Ident>) = lits.iter().cloned().unzip();
 
     let deprecations = item.deprecations();
+    let crate_path = item.crate_path();
 
     quote! {
-        fn to_possible_value<'a>(&self) -> ::std::option::Option<clap::builder::PossibleValue> {
+        fn to_possible_value<'a>(&self) -> ::std::option::Option<#crate_path::builder::PossibleValue> {
             #deprecations
             match self {
                 #(Self::#variant => Some(#lit),)*

@@ -84,6 +84,7 @@ fn gen_for_struct(
 
     let into_app = into_app::gen_for_struct(item, item_name, generics)?;
     let args = args::gen_for_struct(item, item_name, generics, fields)?;
+    let crate_path = item.crate_path();
 
     Ok(quote! {
         #[automatically_derived]
@@ -91,7 +92,7 @@ fn gen_for_struct(
             unused_qualifications,
             clippy::redundant_locals,
         )]
-        impl #impl_generics clap::Parser for #item_name #ty_generics #where_clause {}
+        impl #impl_generics #crate_path::Parser for #item_name #ty_generics #where_clause {}
 
         #into_app
         #args
@@ -108,10 +109,11 @@ fn gen_for_enum(
 
     let into_app = into_app::gen_for_enum(item, item_name, generics)?;
     let subcommand = subcommand::gen_for_enum(item, item_name, generics, variants)?;
+    let crate_path = item.crate_path();
 
     Ok(quote! {
         #[automatically_derived]
-        impl #impl_generics clap::Parser for #item_name #ty_generics #where_clause {}
+        impl #impl_generics #crate_path::Parser for #item_name #ty_generics #where_clause {}
 
         #into_app
         #subcommand

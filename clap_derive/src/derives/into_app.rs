@@ -27,6 +27,7 @@ pub(crate) fn gen_for_struct(
 
     let name = item.cased_name();
     let app_var = Ident::new("__clap_app", Span::call_site());
+    let crate_path = item.crate_path();
 
     let tokens = quote! {
         #[allow(
@@ -50,15 +51,15 @@ pub(crate) fn gen_for_struct(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl #impl_generics clap::CommandFactory for #item_name #ty_generics #where_clause {
-            fn command<'b>() -> clap::Command {
-                let #app_var = clap::Command::new(#name);
-                <Self as clap::Args>::augment_args(#app_var)
+        impl #impl_generics #crate_path::CommandFactory for #item_name #ty_generics #where_clause {
+            fn command<'b>() -> #crate_path::Command {
+                let #app_var = #crate_path::Command::new(#name);
+                <Self as #crate_path::Args>::augment_args(#app_var)
             }
 
-            fn command_for_update<'b>() -> clap::Command {
-                let #app_var = clap::Command::new(#name);
-                <Self as clap::Args>::augment_args_for_update(#app_var)
+            fn command_for_update<'b>() -> #crate_path::Command {
+                let #app_var = #crate_path::Command::new(#name);
+                <Self as #crate_path::Args>::augment_args_for_update(#app_var)
             }
         }
     };
@@ -75,6 +76,7 @@ pub(crate) fn gen_for_enum(
 
     let name = item.cased_name();
     let app_var = Ident::new("__clap_app", Span::call_site());
+    let crate_path = item.crate_path();
 
     Ok(quote! {
         #[allow(
@@ -98,17 +100,17 @@ pub(crate) fn gen_for_enum(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl #impl_generics clap::CommandFactory for #item_name #ty_generics #where_clause {
-            fn command<'b>() -> clap::Command {
-                let #app_var = clap::Command::new(#name)
+        impl #impl_generics #crate_path::CommandFactory for #item_name #ty_generics #where_clause {
+            fn command<'b>() -> #crate_path::Command {
+                let #app_var = #crate_path::Command::new(#name)
                     .subcommand_required(true)
                     .arg_required_else_help(true);
-                <Self as clap::Subcommand>::augment_subcommands(#app_var)
+                <Self as #crate_path::Subcommand>::augment_subcommands(#app_var)
             }
 
-            fn command_for_update<'b>() -> clap::Command {
-                let #app_var = clap::Command::new(#name);
-                <Self as clap::Subcommand>::augment_subcommands_for_update(#app_var)
+            fn command_for_update<'b>() -> #crate_path::Command {
+                let #app_var = #crate_path::Command::new(#name);
+                <Self as #crate_path::Subcommand>::augment_subcommands_for_update(#app_var)
                     .subcommand_required(false)
                     .arg_required_else_help(false)
             }

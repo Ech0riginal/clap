@@ -64,6 +64,7 @@ pub(crate) fn gen_for_enum(
     let augmentation = gen_augment(variants, item, false)?;
     let augmentation_update = gen_augment(variants, item, true)?;
     let has_subcommand = gen_has_subcommand(variants)?;
+    let crate_path = item.crate_path();
 
     Ok(quote! {
         #[allow(
@@ -87,14 +88,14 @@ pub(crate) fn gen_for_enum(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl #impl_generics clap::FromArgMatches for #item_name #ty_generics #where_clause {
-            fn from_arg_matches(__clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> {
+        impl #impl_generics #crate_path::FromArgMatches for #item_name #ty_generics #where_clause {
+            fn from_arg_matches(__clap_arg_matches: &#crate_path::ArgMatches) -> ::std::result::Result<Self, #crate_path::Error> {
                 Self::from_arg_matches_mut(&mut __clap_arg_matches.clone())
             }
 
             #from_arg_matches
 
-            fn update_from_arg_matches(&mut self, __clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<(), clap::Error> {
+            fn update_from_arg_matches(&mut self, __clap_arg_matches: &#crate_path::ArgMatches) -> ::std::result::Result<(), #crate_path::Error> {
                 self.update_from_arg_matches_mut(&mut __clap_arg_matches.clone())
             }
             #update_from_arg_matches
@@ -121,11 +122,11 @@ pub(crate) fn gen_for_enum(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl #impl_generics clap::Subcommand for #item_name #ty_generics #where_clause {
-            fn augment_subcommands <'b>(__clap_app: clap::Command) -> clap::Command {
+        impl #impl_generics #crate_path::Subcommand for #item_name #ty_generics #where_clause {
+            fn augment_subcommands <'b>(__clap_app: #crate_path::Command) -> #crate_path::Command {
                 #augmentation
             }
-            fn augment_subcommands_for_update <'b>(__clap_app: clap::Command) -> clap::Command {
+            fn augment_subcommands_for_update <'b>(__clap_app: #crate_path::Command) -> #crate_path::Command {
                 #augmentation_update
             }
             fn has_subcommand(__clap_name: &str) -> bool {
@@ -143,6 +144,7 @@ fn gen_augment(
     use syn::Fields::{Named, Unit, Unnamed};
 
     let app_var = Ident::new("__clap_app", Span::call_site());
+    let crate_path = parent_item.crate_path();
 
     let mut subcommands = Vec::new();
     for (variant, item) in variants {
@@ -177,7 +179,7 @@ fn gen_augment(
                 let subcommand = quote_spanned! { kind.span()=>
                     #deprecations
                     let #app_var = #app_var
-                        .external_subcommand_value_parser(clap::value_parser!(#subty));
+                        .external_subcommand_value_parser(#crate_path::value_parser!(#subty));
                 };
                 Some(subcommand)
             }
@@ -198,7 +200,7 @@ fn gen_augment(
                             let #app_var = #app_var
                                 #next_help_heading
                                 #next_display_order;
-                            let #app_var = <#ty as clap::Subcommand>::augment_subcommands_for_update(#app_var);
+                            let #app_var = <#ty as #crate_path::Subcommand>::augment_subcommands_for_update(#app_var);
                         }
                     } else {
                         quote! {
@@ -206,7 +208,7 @@ fn gen_augment(
                             let #app_var = #app_var
                                 #next_help_heading
                                 #next_display_order;
-                            let #app_var = <#ty as clap::Subcommand>::augment_subcommands(#app_var);
+                            let #app_var = <#ty as #crate_path::Subcommand>::augment_subcommands(#app_var);
                         }
                     };
                     Some(subcommand)
@@ -229,13 +231,13 @@ fn gen_augment(
                         if override_required {
                             quote_spanned! { ty.span()=>
                                 {
-                                    <#ty as clap::Subcommand>::augment_subcommands_for_update(#subcommand_var)
+                                    <#ty as #crate_path::Subcommand>::augment_subcommands_for_update(#subcommand_var)
                                 }
                             }
                         } else {
                             quote_spanned! { ty.span()=>
                                 {
-                                    <#ty as clap::Subcommand>::augment_subcommands(#subcommand_var)
+                                    <#ty as #crate_path::Subcommand>::augment_subcommands(#subcommand_var)
                                 }
                             }
                         }
@@ -264,7 +266,7 @@ fn gen_augment(
                 let subcommand = quote! {
                     let #app_var = #app_var.subcommand({
                         #deprecations;
-                        let #subcommand_var = clap::Command::new(#name);
+                        let #subcommand_var = #crate_path::Command::new(#name);
                         let #subcommand_var = #subcommand_var
                             .subcommand_required(true)
                             .arg_required_else_help(true);
@@ -299,13 +301,13 @@ fn gen_augment(
                         let arg_block = if override_required {
                             quote_spanned! { ty.span()=>
                                 {
-                                    <#ty as clap::Args>::augment_args_for_update(#subcommand_var)
+                                    <#ty as #crate_path::Args>::augment_args_for_update(#subcommand_var)
                                 }
                             }
                         } else {
                             quote_spanned! { ty.span()=>
                                 {
-                                    <#ty as clap::Args>::augment_args(#subcommand_var)
+                                    <#ty as #crate_path::Args>::augment_args(#subcommand_var)
                                 }
                             }
                         };
@@ -331,7 +333,7 @@ fn gen_augment(
                 let subcommand = quote! {
                     let #app_var = #app_var.subcommand({
                         #deprecations
-                        let #subcommand_var = clap::Command::new(#name);
+                        let #subcommand_var = #crate_path::Command::new(#name);
                         #sub_augment
                     });
                 };
@@ -359,6 +361,7 @@ fn gen_augment(
 fn gen_has_subcommand(variants: &[(&Variant, Item)]) -> Result<TokenStream, syn::Error> {
     use syn::Fields::Unnamed;
 
+    let crate_path = variants.first().map(|(_, item)| item.crate_path()).unwrap_or_else(|| quote!(clap));
     let mut ext_subcmd = false;
 
     let (flatten_variants, variants): (Vec<_>, Vec<_>) = variants
@@ -394,7 +397,7 @@ fn gen_has_subcommand(variants: &[(&Variant, Item)]) -> Result<TokenStream, syn:
             Unnamed(ref fields) if fields.unnamed.len() == 1 => {
                 let ty = &fields.unnamed[0].ty;
                 Ok(quote! {
-                    if <#ty as clap::Subcommand>::has_subcommand(__clap_name) {
+                    if <#ty as #crate_path::Subcommand>::has_subcommand(__clap_name) {
                         return true;
                     }
                 })
@@ -423,6 +426,7 @@ fn gen_has_subcommand(variants: &[(&Variant, Item)]) -> Result<TokenStream, syn:
 fn gen_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, syn::Error> {
     use syn::Fields::{Named, Unit, Unnamed};
 
+    let crate_path = variants.first().map(|(_, item)| item.crate_path()).unwrap_or_else(|| quote!(clap));
     let subcommand_name_var = format_ident!("__clap_name");
     let sub_arg_matches_var = format_ident!("__clap_arg_matches");
 
@@ -499,7 +503,7 @@ fn gen_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, sy
             Unit => quote!(),
             Unnamed(ref fields) if fields.unnamed.len() == 1 => {
                 let ty = &fields.unnamed[0].ty;
-                quote!( ( <#ty as clap::FromArgMatches>::from_arg_matches_mut(__clap_arg_matches)? ) )
+                quote!( ( <#ty as #crate_path::FromArgMatches>::from_arg_matches_mut(__clap_arg_matches)? ) )
             }
             Unnamed(..) => abort_call_site!("{}: tuple enums are not supported", variant.ident),
         };
@@ -518,10 +522,10 @@ fn gen_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, sy
                 Ok(quote! {
                     if __clap_arg_matches
                         .subcommand_name()
-                        .map(|__clap_name| <#ty as clap::Subcommand>::has_subcommand(__clap_name))
+                        .map(|__clap_name| <#ty as #crate_path::Subcommand>::has_subcommand(__clap_name))
                         .unwrap_or_default()
                     {
-                        let __clap_res = <#ty as clap::FromArgMatches>::from_arg_matches_mut(__clap_arg_matches)?;
+                        let __clap_res = <#ty as #crate_path::FromArgMatches>::from_arg_matches_mut(__clap_arg_matches)?;
                         return ::std::result::Result::Ok(Self :: #variant_name (__clap_res));
                     }
                 })
@@ -548,13 +552,13 @@ fn gen_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, sy
         },
 
         None => quote! {
-            ::std::result::Result::Err(clap::Error::raw(clap::error::ErrorKind::InvalidSubcommand, format!("the subcommand '{}' wasn't recognized", #subcommand_name_var)))
+            ::std::result::Result::Err(#crate_path::Error::raw(#crate_path::error::ErrorKind::InvalidSubcommand, format!("the subcommand '{}' wasn't recognized", #subcommand_name_var)))
         },
     };
 
     let raw_deprecated = args::raw_deprecated();
     Ok(quote! {
-        fn from_arg_matches_mut(__clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> {
+        fn from_arg_matches_mut(__clap_arg_matches: &mut #crate_path::ArgMatches) -> ::std::result::Result<Self, #crate_path::Error> {
             #raw_deprecated
 
             #( #child_subcommands )else*
@@ -565,7 +569,7 @@ fn gen_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, sy
 
                 #wildcard
             } else {
-                ::std::result::Result::Err(clap::Error::raw(clap::error::ErrorKind::MissingSubcommand, "a subcommand is required but one was not provided"))
+                ::std::result::Result::Err(#crate_path::Error::raw(#crate_path::error::ErrorKind::MissingSubcommand, "a subcommand is required but one was not provided"))
             }
         }
     })
@@ -574,6 +578,7 @@ fn gen_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, sy
 fn gen_update_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStream, syn::Error> {
     use syn::Fields::{Named, Unit, Unnamed};
 
+    let crate_path = variants.first().map(|(_, item)| item.crate_path()).unwrap_or_else(|| quote!(clap));
     let (flatten, variants): (Vec<_>, Vec<_>) = variants
         .iter()
         .filter_map(|(variant, item)| {
@@ -610,7 +615,7 @@ fn gen_update_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStr
                 if fields.unnamed.len() == 1 {
                     (
                         quote!((ref mut __clap_arg)),
-                        quote!(clap::FromArgMatches::update_from_arg_matches_mut(
+                        quote!(#crate_path::FromArgMatches::update_from_arg_matches_mut(
                             __clap_arg,
                             __clap_arg_matches
                         )?),
@@ -636,9 +641,9 @@ fn gen_update_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStr
             Unnamed(ref fields) if fields.unnamed.len() == 1 => {
                 let ty = &fields.unnamed[0].ty;
                 Ok(quote! {
-                    if <#ty as clap::Subcommand>::has_subcommand(__clap_name) {
+                    if <#ty as #crate_path::Subcommand>::has_subcommand(__clap_name) {
                         if let Self :: #variant_name (child) = s {
-                            <#ty as clap::FromArgMatches>::update_from_arg_matches_mut(child, __clap_arg_matches)?;
+                            <#ty as #crate_path::FromArgMatches>::update_from_arg_matches_mut(child, __clap_arg_matches)?;
                             return ::std::result::Result::Ok(());
                         }
                     }
@@ -655,8 +660,8 @@ fn gen_update_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStr
     Ok(quote! {
         fn update_from_arg_matches_mut<'b>(
             &mut self,
-            __clap_arg_matches: &mut clap::ArgMatches,
-        ) -> ::std::result::Result<(), clap::Error> {
+            __clap_arg_matches: &mut #crate_path::ArgMatches,
+        ) -> ::std::result::Result<(), #crate_path::Error> {
             #raw_deprecated
 
             if let Some(__clap_name) = __clap_arg_matches.subcommand_name() {
@@ -664,7 +669,7 @@ fn gen_update_from_arg_matches(variants: &[(&Variant, Item)]) -> Result<TokenStr
                     #( #subcommands ),*
                     s => {
                         #( #child_subcommands )*
-                        *s = <Self as clap::FromArgMatches>::from_arg_matches_mut(__clap_arg_matches)?;
+                        *s = <Self as #crate_path::FromArgMatches>::from_arg_matches_mut(__clap_arg_matches)?;
                     }
                 }
             }

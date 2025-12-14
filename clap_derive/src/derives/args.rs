@@ -77,12 +77,13 @@ pub(crate) fn gen_for_struct(
     let app_var = Ident::new("__clap_app", Span::call_site());
     let augmentation = gen_augment(fields, &app_var, item, false)?;
     let augmentation_update = gen_augment(fields, &app_var, item, true)?;
+    let crate_path = item.crate_path();
 
     let group_id = if item.skip_group() {
         quote!(None)
     } else {
         let group_id = item.group_id();
-        quote!(Some(clap::Id::from(#group_id)))
+        quote!(Some(#crate_path::Id::from(#group_id)))
     };
 
     Ok(quote! {
@@ -107,22 +108,22 @@ pub(crate) fn gen_for_struct(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl #impl_generics clap::FromArgMatches for #item_name #ty_generics #where_clause {
-            fn from_arg_matches(__clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> {
+        impl #impl_generics #crate_path::FromArgMatches for #item_name #ty_generics #where_clause {
+            fn from_arg_matches(__clap_arg_matches: &#crate_path::ArgMatches) -> ::std::result::Result<Self, #crate_path::Error> {
                 Self::from_arg_matches_mut(&mut __clap_arg_matches.clone())
             }
 
-            fn from_arg_matches_mut(__clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> {
+            fn from_arg_matches_mut(__clap_arg_matches: &mut #crate_path::ArgMatches) -> ::std::result::Result<Self, #crate_path::Error> {
                 #raw_deprecated
                 let v = #item_name #constructor;
                 ::std::result::Result::Ok(v)
             }
 
-            fn update_from_arg_matches(&mut self, __clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<(), clap::Error> {
+            fn update_from_arg_matches(&mut self, __clap_arg_matches: &#crate_path::ArgMatches) -> ::std::result::Result<(), #crate_path::Error> {
                 self.update_from_arg_matches_mut(&mut __clap_arg_matches.clone())
             }
 
-            fn update_from_arg_matches_mut(&mut self, __clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<(), clap::Error> {
+            fn update_from_arg_matches_mut(&mut self, __clap_arg_matches: &mut #crate_path::ArgMatches) -> ::std::result::Result<(), #crate_path::Error> {
                 #raw_deprecated
                 #updater
                 ::std::result::Result::Ok(())
@@ -150,14 +151,14 @@ pub(crate) fn gen_for_struct(
             clippy::redundant_locals,
         )]
         #[automatically_derived]
-        impl #impl_generics clap::Args for #item_name #ty_generics #where_clause {
-            fn group_id() -> Option<clap::Id> {
+        impl #impl_generics #crate_path::Args for #item_name #ty_generics #where_clause {
+            fn group_id() -> Option<#crate_path::Id> {
                 #group_id
             }
-            fn augment_args<'b>(#app_var: clap::Command) -> clap::Command {
+            fn augment_args<'b>(#app_var: #crate_path::Command) -> #crate_path::Command {
                 #augmentation
             }
-            fn augment_args_for_update<'b>(#app_var: clap::Command) -> clap::Command {
+            fn augment_args_for_update<'b>(#app_var: #crate_path::Command) -> #crate_path::Command {
                 #augmentation_update
             }
         }
@@ -172,6 +173,7 @@ pub(crate) fn gen_augment(
     parent_item: &Item,
     override_required: bool,
 ) -> Result<TokenStream, syn::Error> {
+    let crate_path = parent_item.crate_path();
     let mut subcommand_specified = false;
     let mut args = Vec::new();
     for (field, item) in fields {
@@ -214,7 +216,7 @@ pub(crate) fn gen_augment(
                 };
 
                 Some(quote! {
-                    let #app_var = <#subcmd_type as clap::Subcommand>::augment_subcommands( #app_var );
+                    let #app_var = <#subcmd_type as #crate_path::Subcommand>::augment_subcommands( #app_var );
                     let #app_var = #app_var
                         #implicit_methods
                         #override_methods;
@@ -230,7 +232,7 @@ pub(crate) fn gen_augment(
                 let next_display_order = item.next_display_order();
                 let flatten_group_assert = if matches!(**ty, Ty::Option) {
                     quote_spanned! { kind.span()=>
-                        <#inner_type as clap::Args>::group_id().expect("cannot `#[flatten]` an `Option<Args>` with `#[group(skip)]`");
+                        <#inner_type as #crate_path::Args>::group_id().expect("cannot `#[flatten]` an `Option<Args>` with `#[group(skip)]`");
                     }
                 } else {
                     quote! {}
@@ -241,7 +243,7 @@ pub(crate) fn gen_augment(
                         let #app_var = #app_var
                             #next_help_heading
                             #next_display_order;
-                        let #app_var = <#inner_type as clap::Args>::augment_args_for_update(#app_var);
+                        let #app_var = <#inner_type as #crate_path::Args>::augment_args_for_update(#app_var);
                     })
                 } else {
                     Some(quote_spanned! { kind.span()=>
@@ -249,7 +251,7 @@ pub(crate) fn gen_augment(
                         let #app_var = #app_var
                             #next_help_heading
                             #next_display_order;
-                        let #app_var = <#inner_type as clap::Args>::augment_args(#app_var);
+                        let #app_var = <#inner_type as #crate_path::Args>::augment_args(#app_var);
                     })
                 }
             }
@@ -358,7 +360,7 @@ pub(crate) fn gen_augment(
                         #deprecations
 
                         #[allow(deprecated)]
-                        let arg = clap::Arg::new(#id)
+                        let arg = #crate_path::Arg::new(#id)
                             #implicit_methods;
 
                         let arg = arg
@@ -399,7 +401,7 @@ pub(crate) fn gen_augment(
             .collect::<Vec<_>>();
         let literal_group_members_len = literal_group_members.len();
         let mut literal_group_members = quote! {{
-            let members: [clap::Id; #literal_group_members_len] = [#( clap::Id::from(#literal_group_members) ),* ];
+            let members: [#crate_path::Id; #literal_group_members_len] = [#( #crate_path::Id::from(#literal_group_members) ),* ];
             members
         }};
         // HACK: Validation isn't ready yet for nested arg groups, so just don't populate the group in
@@ -413,7 +415,7 @@ pub(crate) fn gen_augment(
             .count();
         if 0 < possible_group_members_len {
             literal_group_members = quote! {{
-                let members: [clap::Id; 0] = [];
+                let members: [#crate_path::Id; 0] = [];
                 members
             }};
         }
@@ -422,7 +424,7 @@ pub(crate) fn gen_augment(
 
         quote!(
             .group(
-                clap::ArgGroup::new(#group_id)
+                #crate_path::ArgGroup::new(#group_id)
                     .multiple(true)
                     #group_methods
                     .args(#literal_group_members)
@@ -459,12 +461,13 @@ pub(crate) fn gen_constructor(fields: &[(&Field, Item)]) -> Result<TokenStream, 
                     (Ty::Option, Some(sub_type)) => sub_type,
                     _ => &field.ty,
                 };
+                let crate_path = item.crate_path();
                 match **ty {
                     Ty::Option => {
                         quote_spanned! { kind.span()=>
                             #field_name: {
-                                if #arg_matches.subcommand_name().map(<#subcmd_type as clap::Subcommand>::has_subcommand).unwrap_or(false) {
-                                    Some(<#subcmd_type as clap::FromArgMatches>::from_arg_matches_mut(#arg_matches)?)
+                                if #arg_matches.subcommand_name().map(<#subcmd_type as #crate_path::Subcommand>::has_subcommand).unwrap_or(false) {
+                                    Some(<#subcmd_type as #crate_path::FromArgMatches>::from_arg_matches_mut(#arg_matches)?)
                                 } else {
                                     None
                                 }
@@ -474,7 +477,7 @@ pub(crate) fn gen_constructor(fields: &[(&Field, Item)]) -> Result<TokenStream, 
                     Ty::Other => {
                         quote_spanned! { kind.span()=>
                             #field_name: {
-                                <#subcmd_type as clap::FromArgMatches>::from_arg_matches_mut(#arg_matches)?
+                                <#subcmd_type as #crate_path::FromArgMatches>::from_arg_matches_mut(#arg_matches)?
                             }
                         }
                     },
@@ -498,20 +501,21 @@ pub(crate) fn gen_constructor(fields: &[(&Field, Item)]) -> Result<TokenStream, 
                     (Ty::Option, Some(sub_type)) => sub_type,
                     _ => &field.ty,
                 };
+                let crate_path = item.crate_path();
                 match **ty {
                     Ty::Other => {
                         quote_spanned! { kind.span()=>
-                            #field_name: <#inner_type as clap::FromArgMatches>::from_arg_matches_mut(#arg_matches)?
+                            #field_name: <#inner_type as #crate_path::FromArgMatches>::from_arg_matches_mut(#arg_matches)?
                         }
                     },
                     Ty::Option => {
                         quote_spanned! { kind.span()=>
                             #field_name: {
-                                let group_id = <#inner_type as clap::Args>::group_id()
+                                let group_id = <#inner_type as #crate_path::Args>::group_id()
                                     .expect("asserted during `Arg` creation");
                                 if #arg_matches.contains_id(group_id.as_str()) {
                                     Some(
-                                        <#inner_type as clap::FromArgMatches>::from_arg_matches_mut(#arg_matches)?
+                                        <#inner_type as #crate_path::FromArgMatches>::from_arg_matches_mut(#arg_matches)?
                                     )
                                 } else {
                                     None
@@ -582,9 +586,10 @@ pub(crate) fn gen_updater(
                     (Ty::Option, Some(sub_type)) => sub_type,
                     _ => &field.ty,
                 };
+                let crate_path = item.crate_path();
 
                 let updater = quote_spanned! { ty.span()=>
-                    <#subcmd_type as clap::FromArgMatches>::update_from_arg_matches_mut(#field_name, #arg_matches)?;
+                    <#subcmd_type as #crate_path::FromArgMatches>::update_from_arg_matches_mut(#field_name, #arg_matches)?;
                 };
 
                 let updater = match **ty {
@@ -592,7 +597,7 @@ pub(crate) fn gen_updater(
                         if let Some(#field_name) = #field_name.as_mut() {
                             #updater
                         } else {
-                            *#field_name = Some(<#subcmd_type as clap::FromArgMatches>::from_arg_matches_mut(
+                            *#field_name = Some(<#subcmd_type as #crate_path::FromArgMatches>::from_arg_matches_mut(
                                 #arg_matches
                             )?);
                         }
@@ -615,9 +620,10 @@ pub(crate) fn gen_updater(
                     (Ty::Option, Some(sub_type)) => sub_type,
                     _ => &field.ty,
                 };
+                let crate_path = item.crate_path();
 
                 let updater = quote_spanned! { ty.span()=>
-                    <#inner_type as clap::FromArgMatches>::update_from_arg_matches_mut(#field_name, #arg_matches)?;
+                    <#inner_type as #crate_path::FromArgMatches>::update_from_arg_matches_mut(#field_name, #arg_matches)?;
                 };
 
                 let updater = match **ty {
@@ -625,7 +631,7 @@ pub(crate) fn gen_updater(
                         if let Some(#field_name) = #field_name.as_mut() {
                             #updater
                         } else {
-                            *#field_name = Some(<#inner_type as clap::FromArgMatches>::from_arg_matches_mut(
+                            *#field_name = Some(<#inner_type as #crate_path::FromArgMatches>::from_arg_matches_mut(
                                 #arg_matches
                             )?);
                         }
@@ -670,6 +676,7 @@ fn gen_parsers(
     let get_one = quote_spanned!(span=> remove_one::<#convert_type>);
     let get_many = quote_spanned!(span=> remove_many::<#convert_type>);
     let get_occurrences = quote_spanned!(span=> remove_occurrences::<#convert_type>);
+    let crate_path = item.crate_path();
 
     // Give this identifier the same hygiene
     // as the `arg_matches` parameter definition. This
@@ -735,13 +742,13 @@ fn gen_parsers(
                 Name::Assigned(_) => {
                     quote_spanned! { ty.span()=>
                         #arg_matches.#get_one(#id)
-                            .ok_or_else(|| clap::Error::raw(clap::error::ErrorKind::MissingRequiredArgument, format!("the following required argument was not provided: {}", #id)))?
+                            .ok_or_else(|| #crate_path::Error::raw(#crate_path::error::ErrorKind::MissingRequiredArgument, format!("the following required argument was not provided: {}", #id)))?
                     }
                 }
                 Name::Derived(_) => {
                     quote_spanned! { ty.span()=>
                         #arg_matches.#get_one(#id)
-                            .ok_or_else(|| clap::Error::raw(clap::error::ErrorKind::MissingRequiredArgument, concat!("the following required argument was not provided: ", #id)))?
+                            .ok_or_else(|| #crate_path::Error::raw(#crate_path::error::ErrorKind::MissingRequiredArgument, concat!("the following required argument was not provided: ", #id)))?
                     }
                 }
             }

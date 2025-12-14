@@ -50,6 +50,7 @@ pub(crate) struct Item {
     group_id: Name,
     group_methods: Vec<Method>,
     kind: Sp<Kind>,
+    crate_path: Option<syn::Path>,
 }
 
 impl Item {
@@ -279,6 +280,7 @@ impl Item {
             group_id,
             group_methods: vec![],
             kind,
+            crate_path: None,
         }
     }
 
@@ -819,6 +821,14 @@ impl Item {
                     self.next_help_heading = Some(Method::new(attr.name.clone(), quote!(#expr)));
                 }
 
+                Some(MagicAttrName::Crate) => {
+                    assert_attr_kind(attr, &[AttrKind::Clap, AttrKind::Command])?;
+
+                    let lit = attr.lit_str_or_abort()?;
+                    let path: syn::Path = lit.parse()?;
+                    self.crate_path = Some(path);
+                }
+
                 Some(MagicAttrName::RenameAll) => {
                     let lit = attr.lit_str_or_abort()?;
                     self.casing = CasingStyle::from_lit(lit)?;
@@ -1089,6 +1099,13 @@ impl Item {
 
     pub(crate) fn skip_group(&self) -> bool {
         self.skip_group
+    }
+
+    pub(crate) fn crate_path(&self) -> TokenStream {
+        self.crate_path
+            .as_ref()
+            .map(|path| quote!(#path))
+            .unwrap_or_else(|| quote!(clap))
     }
 }
 

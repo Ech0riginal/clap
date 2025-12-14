@@ -73,8 +73,16 @@ impl ClapAttr {
 
 impl Parse for ClapAttr {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let name: Ident = input.parse()?;
-        let name_str = name.to_string();
+        // Special handling for the `crate` keyword
+        let (name, name_str) = if input.peek(Token![crate]) {
+            let crate_token: Token![crate] = input.parse()?;
+            let name = Ident::new("crate", crate_token.span);
+            (name, "crate".to_string())
+        } else {
+            let name: Ident = input.parse()?;
+            let name_str = name.to_string();
+            (name, name_str)
+        };
 
         let magic = match name_str.as_str() {
             "rename_all" => Some(MagicAttrName::RenameAll),
@@ -102,6 +110,7 @@ impl Parse for ClapAttr {
             "long_help" => Some(MagicAttrName::LongHelp),
             "author" => Some(MagicAttrName::Author),
             "version" => Some(MagicAttrName::Version),
+            "crate" => Some(MagicAttrName::Crate),
             _ => None,
         };
 
@@ -168,6 +177,7 @@ pub(crate) enum MagicAttrName {
     DefaultValuesOsT,
     NextDisplayOrder,
     NextHelpHeading,
+    Crate,
 }
 
 #[derive(Clone)]
